@@ -1,0 +1,13 @@
+@echo off
+rem kine-signal 环境启动模板（复制为 kine-signal.bat 并填入你的 key）
+start "" /min "C:\path\to\mihomo.exe" -d "C:\path\to\mihomo" -f config.yaml
+timeout /t 5 /nobreak >nul
+
+set HTTPS_PROXY=http://127.0.0.1:7897
+set HTTP_PROXY=http://127.0.0.1:7897
+set NODE_USE_ENV_PROXY=1
+set GROQ_API_KEY=YOUR_GROQ_API_KEY_HERE
+start "" /min cmd /c "cd /d C:\path\to\x402-service && node run_local.mjs >> local.out.log 2>> local.err.log"
+timeout /t 6 /nobreak >nul
+
+start "" /min "C:\path\to\cloudflared.exe" tunnel --config "C:\path\to\config.yml" run kine-signal
