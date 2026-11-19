@@ -15,6 +15,7 @@
     "@x402/core": "^2.31.0",
     "@x402/evm": "^2.31.0",
     "@x402/express": "^2.31.0",
+    "ethers": "^6.17.0",
     "express": "^5.3.0",
     "playwright": "^1.65.1",
     "serverless-http": "^4.0.0"

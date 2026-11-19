@@ -21,7 +21,15 @@ import { TOOLS, TOOLS_ROUTES, TOOLS_PATHS } from "./extended-tools.mjs";
 import { AI_ENDPOINTS, AI_ROUTES, AI_PATHS } from "./ai-proxy.mjs";
 import { OPENAI_ROUTES, OPENAI_PATHS, handleChatCompletions, handleModels } from "./openai-compat.mjs";
 import { UTIL_ENDPOINTS, UTIL_ROUTES, UTIL_PATHS } from "./utility-xpay.mjs";
-import { FREE_PATHS, issueChallenge, verifyPow } from "./pow.mjs";
+import { FREE_PATHS, issueChallenge, verifyPow, powFreeMiddleware } from "./pow.mjs";
+import { POW_TOOLS1, POW1_PATHS } from "./pow-tools1.mjs";
+import { POW_TOOLS2, POW2_PATHS } from "./pow-tools2.mjs";
+import { POW_TOOLS3, POW3_PATHS } from "./pow-tools3.mjs";
+import { LLAMA_ENDPOINTS_M, LLAMA_ROUTES, LLAMA_PATHS } from "./defillama.mjs";
+import { BSC_EXCLUSIVE, BSC_EXCLUSIVE_ROUTES, BSC_EXCLUSIVE_PATHS } from "./bsc-exclusive.mjs";
+import { CLAUDE_ROUTES, CLAUDE_PATHS, handleClaude } from "./claude-upstream.mjs";
+import { GPT_ROUTES, GPT_PATHS, handleGpt } from "./gpt-upstream.mjs";
+import { SUB_ROUTES, SUB_PATHS, subHandler, makeSubMiddleware, SUB_COVERED_PREFIXES } from "./subscription.mjs";
 import { VERDICT_ENDPOINTS, VERDICT_ROUTES, VERDICT_PATHS } from "./verdict.mjs";
 import { EXPAND, EXPAND_ROUTES, EXPAND_PATHS } from "./expand-rpc.mjs";
 import { SKILLS, SKILL_ROUTES, SKILL_PATHS } from "./skill-packs.mjs";
@@ -73,6 +81,20 @@ const discovery = declareDiscoveryExtension({
 
 const app = express();
 app.set("trust proxy", true);
+app.use(powFreeMiddleware);
+
+// 订阅 handler 映射（skill packs + bsc 独占）
+const SUB_HANDLERS = Object.fromEntries([
+  ...SKILLS.map((ep) => [ep.path, ep.handler]),
+  ...SKILLS2.map((ep) => [ep.path, ep.handler]),
+  ...BSC_EXCLUSIVE.map((ep) => [ep.path, ep.handler]),
+]);
+app.use(makeSubMiddleware(SUB_HANDLERS));
+
+// /sub/daily（$1，24h unlimited）
+app.use(paymentMiddleware(SUB_ROUTES, resourceServer));
+app.get("/sub/daily", subHandler);
+
 app.use(express.json({ limit: "64kb" }));
 
 app.use(
@@ -239,6 +261,31 @@ async function pairInfo(token, quote) {
 
 function validAddr(a) { return /^0x[0-9a-fA-F]{40}$/.test(a); }
 
+app.use(paymentMiddleware(GPT_ROUTES, resourceServer));
+app.post("/v1/gpt", handleGpt);
+
+app.use(paymentMiddleware(CLAUDE_ROUTES, resourceServer));
+app.post("/v1/claude", handleClaude);
+
+app.use(paymentMiddleware(BSC_EXCLUSIVE_ROUTES, resourceServer));
+for (const ep of BSC_EXCLUSIVE) {
+  app.get(ep.path, ep.handler);
+}
+
+app.use(paymentMiddleware(LLAMA_ROUTES, resourceServer));
+for (const ep of LLAMA_ENDPOINTS_M) {
+  if (ep.method === "POST") app.post(ep.path, ep.handler);
+  else app.get(ep.path, ep.handler);
+}
+
+app.get("/deploy", (_req, res) => {
+  try {
+    res.type("text/html").send(fs.readFileSync(new URL("./deploy_page.html", import.meta.url), "utf8"));
+  } catch (e) {
+    res.status(500).type("text/plain").send("deploy page unavailable");
+  }
+});
+
 app.get("/agents.md", (_req, res) => {
   try {
     const md = fs.readFileSync(new URL("./agents.md", import.meta.url), "utf8");
@@ -398,6 +445,7 @@ app.use(paymentMiddleware(UTIL_ROUTES_PAID, resourceServer));
 app.use((req, res, next) => {
   const p = req.path;
   if (!FREE_PATHS.has(p)) return next();
+  if (req.powBypass) return next();
   if (verifyPow(req.headers["x-pow"]).ok) return next();
   res.status(402).json({
     error: "payment_required_or_pow",
@@ -408,6 +456,22 @@ app.use((req, res, next) => {
 });
 
 app.get("/pow/challenge", (_req, res) => res.json(issueChallenge()));
+
+// 100 个 PoW 免费工具
+const ALL_POW_TOOLS = [...POW_TOOLS1, ...POW_TOOLS2, ...POW_TOOLS3];
+for (const t of ALL_POW_TOOLS) FREE_PATHS.add(t.path);
+for (const t of ALL_POW_TOOLS) {
+  app.get(t.path, (req, res) => {
+    if (!req.powBypass) {
+      return res.status(402).json({ error: "pow_required", hint: "GET /pow/challenge then retry with X-PoW: challenge:nonce" });
+    }
+    try {
+      res.json(t.handler(req.query || {}));
+    } catch (e) {
+      res.status(400).json({ error: "bad_input", message: String(e.message).slice(0, 200) });
+    }
+  });
+}
 for (const ep of UTIL_ENDPOINTS) {
   if (ep.method === "POST") app.post(ep.path, ep.handler);
   else app.get(ep.path, ep.handler);
@@ -425,7 +489,7 @@ for (const ep of TOOLS) {
 app.get("/openapi.json", (_req, res) => {
   const merged = {
     ...OPENAPI,
-    paths: { ...OPENAPI.paths, ...EXTRA_PATHS, ...MATRIX2_PATHS, ...MULTICHAIN_PATHS, ...EXTENDED_PATHS, ...TOOLS_PATHS, ...AI_PATHS, ...OPENAI_PATHS, ...UTIL_PATHS, ...VERDICT_PATHS, ...EXPAND_PATHS, ...SKILL_PATHS, ...SKILL2_PATHS,
+    paths: { ...OPENAPI.paths, ...EXTRA_PATHS, ...MATRIX2_PATHS, ...MULTICHAIN_PATHS, ...EXTENDED_PATHS, ...TOOLS_PATHS, ...AI_PATHS, ...OPENAI_PATHS, ...UTIL_PATHS, ...VERDICT_PATHS, ...EXPAND_PATHS, ...SKILL_PATHS, ...SKILL2_PATHS, ...POW1_PATHS, ...POW2_PATHS, ...POW3_PATHS, ...LLAMA_PATHS, ...BSC_EXCLUSIVE_PATHS, ...CLAUDE_PATHS, ...GPT_PATHS, ...SUB_PATHS,
     "/pow/challenge": {
       get: {
         summary: "Get a proof-of-work challenge to call CPU-only endpoints for free",

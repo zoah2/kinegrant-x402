@@ -11,6 +11,7 @@ const MAX_INPUT_CHARS = 2000;
 const MAX_OUTPUT_TOKENS = 512;
 const MODELS = {
   "gpt-oss-20b": "openai/gpt-oss-20b",
+  "gpt-oss-120b": "openai/gpt-oss-120b",
   "allam-2-7b": "allam-2-7b",
   "qwen-3.8": "qwen/qwen3.8-27b",
 };

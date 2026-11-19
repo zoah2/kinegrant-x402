@@ -36,6 +36,18 @@ You are an agent. This file tells you when to call this API, how to pay, and wha
 
 Full list: `GET /openapi.json` (137 endpoints).
 
+
+## AI models (20, three price tiers)
+
+| Endpoint | Price | Models |
+|---|---|---|
+| `POST /v1/gpt` | **$0.02** | GPT-6 Astra, GPT-6.2, GPT-5.6 Sol |
+| `POST /v1/claude` | **$0.01** | Claude Opus 5.5 / Opus 5 / Opus 4.8 / Sonnet 5.5 / Sonnet 5 / Fable 5.2 / Fable 5.1 |
+| `POST /v1/chat/completions` | **$0.002** | gpt-oss-120b, gpt-oss-20b, gpt-4o, gpt-4o-mini, qwen3, allam-2-7b, deepseek-v4, deepseek-chat, deepseek-reasoner |
+
+`GET /v1/models` returns all 20 with endpoint + price + provider (free, no payment).
+All three are OpenAI-format: `{"model": "...", "messages": [{"role": "user", "content": "..."}], "max_tokens": 256}`.
+
 ## How to pay (x402)
 
 1. Call the endpoint without a payment header. You get `402 Payment Required` with a base64 `PAYMENT-REQUIRED` header describing the exact price, asset and `payTo`.

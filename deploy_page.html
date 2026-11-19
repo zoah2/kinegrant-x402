@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deploy KineGrantRegistry on BSC</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:480px;margin:0 auto;padding:20px;background:#0b0e14;color:#e6e6e6}
+h1{font-size:20px;margin-bottom:8px}
+p{color:#8a94a6;font-size:13px;line-height:1.6}
+button{width:100%;padding:14px;margin:8px 0;border:0;border-radius:10px;font-size:16px;font-weight:600;color:#fff;background:#1e6fff}
+button:disabled{background:#2a3140;color:#5a6478}
+pre{background:#11151d;padding:12px;border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-all;min-height:60px;color:#7ee787}
+.warn{color:#f0883e}
+</style>
+</head>
+<body>
+<h1>KineGrantRegistry → BSC</h1>
+<p>在币安 App 的 DApp 浏览器里打开本页。点「连接钱包」→ 自动切到 BNB Chain →「部署合约」。</p>
+<button id="connect">① 连接钱包</button>
+<button id="deploy" disabled>② 部署合约（BSC 56）</button>
+<pre id="log">等待操作…</pre>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<script>
+const ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[],"name":"NotOperator","type":"error"},{"inputs":[],"name":"ZeroAmount","type":"error"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previous","type":"address"},{"indexed":true,"internalType":"address","name":"next","type":"address"}],"name":"OperatorUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"payer","type":"address"},{"indexed":true,"internalType":"bytes32","name":"endpointHash","type":"bytes32"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"Paid","type":"event"},{"inputs":[],"name":"operator","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bytes32","name":"endpointHash","type":"bytes32"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"record","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes32","name":"endpointHash","type":"bytes32"}],"name":"stats","outputs":[{"components":[{"internalType":"uint256","name":"calls","type":"uint256"},{"internalType":"uint256","name":"volume","type":"uint256"},{"internalType":"uint256","name":"lastCallAt","type":"uint256"}],"internalType":"struct KineGrantRegistry.EndpointStats","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bytes32[]","name":"hashes","type":"bytes32[]"}],"name":"statsMany","outputs":[{"components":[{"internalType":"uint256","name":"calls","type":"uint256"},{"internalType":"uint256","name":"volume","type":"uint256"},{"internalType":"uint256","name":"lastCallAt","type":"uint256"}],"internalType":"struct KineGrantRegistry.EndpointStats[]","name":"out","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalCalls","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalVolume","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"next","type":"address"}],"name":"transferOperator","outputs":[],"stateMutability":"nonpayable","type":"function"}];
+const BYTECODE = "0x60a0604052348015600e575f80fd5b503360805260805161063b6100385f395f818160c70152818161022d01526102c1015261063b5ff3fe608060405234801561000f575f80fd5b506004361061007a575f3560e01c8063570ca73511610058578063570ca735146100c25780635f81a57c14610101578063ae97568c1461010a578063ff0a26e41461012a575f80fd5b80630f5bcc721461007e57806329605e77146100935780633af3f24f146100a6575b5f80fd5b61009161008c366004610465565b61014a565b005b6100916100a1366004610485565b610222565b6100af60015481565b6040519081526020015b60405180910390f35b6100e97f000000000000000000000000000000000000000000000000000000000000000081565b6040516001600160a01b0390911681526020016100b9565b6100af60025481565b61011d6101183660046104b2565b610318565b6040516100b991906104c9565b61013d6101383660046104ec565b61036f565b6040516100b9919061055d565b805f0361016a57604051631f2a200560e01b815260040160405180910390fd5b5f8281526020819052604081208054909160019183919061018c9084906105be565b9250508190555081816001015f8282546101a691906105be565b90915550504260028201556001805481905f906101c49083906105be565b925050819055508160025f8282546101dc91906105be565b909155505060408051838152426020820152849133917f7dc81a0afb00b911fbad422240ef328d156f6987418de9409c07ce0caf5d3fde910160405180910390a3505050565b336001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000161461026b57604051631f0853c160e21b815260040160405180910390fd5b6001600160a01b0381166102b55760405162461bcd60e51b815260206004820152600d60248201526c3d32b9379037b832b930ba37b960991b604482015260640160405180910390fd5b806001600160a01b03167f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03167ffbe5b6cbafb274f445d7fed869dc77a838d8243a22c460de156560e8857cad0360405160405180910390a350565b61033960405180606001604052805f81526020015f81526020015f81525090565b505f9081526020818152604091829020825160608101845281548152600182015492810192909252600201549181019190915290565b60608167ffffffffffffffff81111561038a5761038a6105dd565b6040519080825280602002602001820160405280156103dc57816020015b6103c960405180606001604052805f81526020015f81526020015f81525090565b8152602001906001900390816103a85790505b5090505f5b8281101561045e575f808585848181106103fd576103fd6105f1565b9050602002013581526020019081526020015f206040518060600160405290815f82015481526020016001820154815260200160028201548152505082828151811061044b5761044b6105f1565b60209081029190910101526001016103e1565b5092915050565b5f8060408385031215610476575f80fd5b50508035926020909101359150565b5f60208284031215610495575f80fd5b81356001600160a01b03811681146104ab575f80fd5b9392505050565b5f602082840312156104c2575f80fd5b5035919050565b815181526020808301519082015260408083015190820152606081015b92915050565b5f80602083850312156104fd575f80fd5b823567ffffffffffffffff811115610513575f80fd5b8301601f81018513610523575f80fd5b803567ffffffffffffffff811115610539575f80fd5b8560208260051b840101111561054d575f80fd5b6020919091019590945092505050565b602080825282518282018190525f918401906040840190835b818110156105b35761059d8385518051825260208082015190830152604090810151910152565b6020939093019260609290920191600101610576565b509095945050505050565b808201808211156104e657634e487b7160e01b5f52601160045260245ffd5b634e487b7160e01b5f52604160045260245ffd5b634e487b7160e01b5f52603260045260245ffdfea26469706673582212209150b87bc8eed7ea9e25cc4184e51aed1e466454d19e1ea0168d91247bc5d55564736f6c634300081a0033";
+const BSC = "0x38";
+const log = (m) => { document.getElementById('log').textContent = m; };
+let provider, signer;
+
+async function ensureBsc() {
+  const cur = await window.ethereum.request({ method: "eth_chainId" });
+  if (cur === BSC) return true;
+  log("当前链 " + cur + "，正在切换到 BNB Chain…");
+  try {
+    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: BSC }] });
+    return true;
+  } catch (e) {
+    if (e.code === 4902 || /Unrecognized chain/i.test(e.message || "")) {
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [{ chainId: BSC, chainName: "BNB Smart Chain", nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 }, rpcUrls: ["https://bsc-dataseed1.binance.org"], blockExplorerUrls: ["https://bscscan.com"] }],
+      });
+      return true;
+    }
+    throw e;
+  }
+}
+
+document.getElementById('connect').onclick = async () => {
+  try {
+    if (!window.ethereum) { log("未检测到钱包。请在币安 App 的 DApp 浏览器中打开本页。"); return; }
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    await ensureBsc();
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer = await provider.getSigner();
+    const addr = await signer.getAddress();
+    const net = await provider.getNetwork();
+    log("已连接：" + addr + "\n链 ID：" + net.chainId + (net.chainId === 56n ? " ✅ BSC" : " ❌ 不是 BSC"));
+    document.getElementById('deploy').disabled = net.chainId !== 56n;
+  } catch (e) { log("连接失败：" + (e.message || e)); }
+};
+
+document.getElementById('deploy').onclick = async () => {
+  try {
+    document.getElementById('deploy').disabled = true;
+    await ensureBsc();
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer = await provider.getSigner();
+    const net = await provider.getNetwork();
+    if (net.chainId !== 56n) { log("仍在链 " + net.chainId + "，请手动切到 BNB Chain 后重试"); document.getElementById('deploy').disabled = false; return; }
+    log("部署中（约 0.002 BNB gas）…");
+    const factory = new ethers.ContractFactory(ABI, BYTECODE, signer);
+    const c = await factory.deploy({ gasLimit: 800000 });
+    log("交易已发出：" + c.deploymentTransaction().hash + "\n等待确认…");
+    await c.waitForDeployment();
+    const addr = await c.getAddress();
+    log("✅ 部署成功（BSC）！\n合约地址：" + addr + "\n\nhttps://bscscan.com/address/" + addr + "\n\n把这个地址发回对话。");
+    window.__REGISTRY = addr;
+  } catch (e) { log("部署失败：" + (e.message || e)); document.getElementById('deploy').disabled = false; }
+};
+</script>
+</body>
+</html>
