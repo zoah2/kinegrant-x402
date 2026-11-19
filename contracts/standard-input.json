@@ -1,0 +1,23 @@
+{
+  "language": "Solidity",
+  "sources": {
+    "contracts/KineGrantRegistry.sol": {
+      "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\n/// @title KineGrant x402 Registry\n/// @notice On-chain record of x402-paid agent API calls on BNB Smart Chain.\n///         Each paid call records: payer (the agent wallet), the endpoint hash\n///         (keccak256 of the endpoint path), the amount paid in wei-equivalent\n///         atomic units, and the block timestamp. Aggregated counters are\n///         readable by any agent or dashboard.\n/// @author KineGrant (kinee.ai)\ncontract KineGrantRegistry {\n    struct EndpointStats {\n        uint256 calls;\n        uint256 volume;\n        uint256 lastCallAt;\n    }\n\n    /// @notice endpoint hash => aggregated stats\n    mapping(bytes32 => EndpointStats) private _stats;\n    /// @notice total calls recorded across all endpoints\n    uint256 public totalCalls;\n    /// @notice total volume recorded across all endpoints (atomic units)\n    uint256 public totalVolume;\n    /// @notice registry operator (deployer)\n    address public immutable operator;\n\n    event Paid(\n        address indexed payer,\n        bytes32 indexed endpointHash,\n        uint256 amount,\n        uint256 timestamp\n    );\n    event OperatorUpdated(address indexed previous, address indexed next);\n\n    error ZeroAmount();\n    error NotOperator();\n\n    modifier onlyOperator() {\n        if (msg.sender != operator) revert NotOperator();\n        _;\n    }\n\n    constructor() {\n        operator = msg.sender;\n    }\n\n    /// @notice Record one paid call. Cheap (one SSTORE per counter).\n    /// @param endpointHash keccak256(endpoint path) computed off-chain\n    /// @param amount amount paid in the token's atomic units\n    function record(bytes32 endpointHash, uint256 amount) external {\n        if (amount == 0) revert ZeroAmount();\n        EndpointStats storage s = _stats[endpointHash];\n        s.calls += 1;\n        s.volume += amount;\n        s.lastCallAt = block.timestamp;\n        totalCalls += 1;\n        totalVolume += amount;\n        emit Paid(msg.sender, endpointHash, amount, block.timestamp);\n    }\n\n    /// @notice Read aggregated stats for one endpoint.\n    function stats(bytes32 endpointHash) external view returns (EndpointStats memory) {\n        return _stats[endpointHash];\n    }\n\n    /// @notice Read stats for many endpoints at once (agent convenience).\n    function statsMany(bytes32[] calldata hashes) external view returns (EndpointStats[] memory out) {\n        out = new EndpointStats[](hashes.length);\n        for (uint256 i = 0; i < hashes.length; i++) {\n            out[i] = _stats[hashes[i]];\n        }\n    }\n\n    /// @notice Hand the operator role to a new owner.\n    function transferOperator(address next) external onlyOperator {\n        require(next != address(0), \"zero operator\");\n        emit OperatorUpdated(operator, next);\n        // operator is immutable by design for cheap reads; this event marks intent.\n    }\n}\n"
+    }
+  },
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "abi",
+          "evm.bytecode",
+          "evm.deployedBytecode"
+        ]
+      }
+    }
+  }
+}
